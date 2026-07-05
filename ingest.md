@@ -211,8 +211,8 @@ REVIEW: [specific reason — what is missing, what decision is needed]
 Examples:
 - `thumbnail: "REVIEW: figure file needs to be renamed from image1.png"`
 - `collections: "REVIEW: inferred — nucleus-core, cal-poly"`
-- In Results: `REVIEW: source figure embedded in Word doc —
-  extract figures/image1.png and rename to figures/[descriptive-name].png`
+- In Results: `REVIEW: source figure extracted from source document —
+  rename figures/image1.png to figures/[descriptive-name].png`
 
 ---
 
