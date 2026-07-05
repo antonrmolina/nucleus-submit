@@ -12,7 +12,7 @@ from pathlib import Path
 import anthropic
 import yaml
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, send_file, abort, jsonify
+from flask import Flask, render_template, request, send_file, send_from_directory, abort, jsonify
 from github import Github, GithubException
 
 load_dotenv()
@@ -383,6 +383,16 @@ def publish(session_id):
     except Exception as e:
         app.logger.exception("Error in /publish")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/session/<session_id>/files/<path:filename>")
+def session_file(session_id, filename):
+    if not re.match(r"^[0-9a-f\-]{36}$", session_id):
+        abort(400)
+    session_dir = Path(f"/tmp/{session_id}")
+    if not session_dir.exists():
+        abort(404)
+    return send_from_directory(session_dir, filename)
 
 
 @app.route("/download/<session_id>")

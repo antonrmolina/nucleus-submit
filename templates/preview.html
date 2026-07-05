@@ -118,7 +118,9 @@
       return { frontmatter, body };
     }
 
-    function preprocessMyst(md) {
+    const SESSION_ID = "{{ session_id }}";
+
+    function preprocessMyst(md, sessionId) {
       // Handle figure directives FIRST, before stripping other directives
       const figureRegex = /:{3}\{figure\}\s+(\S+)\n((?::[\w-]+:.*\n)*)([\s\S]*?):{3}/g;
       md = md.replace(figureRegex, (match, path, props, body) => {
@@ -135,6 +137,7 @@
 
         return `<div class="figure-block">
 <div class="figure-header"><i class="ti ti-photo" aria-hidden="true"></i><code>${path}</code></div>
+<img src="/session/${sessionId}/files/${path}" alt="${caption}" style="max-width: 100%; margin: 8px 0; border-radius: 4px;" onerror="this.style.display='none'" />
 ${propsHtml ? `<div class="figure-props">${propsHtml}</div>` : ''}
 ${caption ? `<div class="figure-caption">${caption}</div>` : ''}
 </div>`;
@@ -168,7 +171,7 @@ ${caption ? `<div class="figure-caption">${caption}</div>` : ''}
       container.appendChild(details);
     }
 
-    const processed = preprocessMyst(body);
+    const processed = preprocessMyst(body, SESSION_ID);
     const html = marked.parse(processed);
     console.log("html length:", html.length);
     console.log("html preview:", html.slice(0, 100));
