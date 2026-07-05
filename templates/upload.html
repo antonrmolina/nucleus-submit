@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Submit a DevNote — Nucleus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.19.0/iconfont/tabler-icons.min.css">
+</head>
+<body>
+  <div class="top-accent"></div>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <span class="wordmark">Nucleus</span>
+      <span class="site-subtitle">DevNote submission</span>
+    </div>
+  </header>
+
+  <main class="upload-main">
+    <div class="upload-card">
+
+      <div id="loading-screen" style="display:none; text-align:center;">
+        <div class="spinner"></div>
+        <div id="status-msg">Unpacking your files...</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:6px; font-family:var(--font-mono);">This usually takes 15–20 seconds</div>
+      </div>
+
+      <form method="POST" action="/submit" enctype="multipart/form-data" id="submit-form">
+
+        <div class="field">
+          <label for="zip_file">Research directory <span style="font-weight:400;color:var(--text-muted);">(.zip)</span></label>
+          <div class="file-zone" id="file-zone">
+            <i class="ti ti-file-zip"></i>
+            <span id="file-label">Choose a .zip file or drag and drop</span>
+            <input type="file" id="zip_file" name="zip_file" accept=".zip" required>
+          </div>
+          <p class="field-hint">Include your narrative document (.docx or .md), figures, and any data files. Max 50MB.</p>
+        </div>
+
+        <div class="field">
+          <label for="author_name">Author name</label>
+          <input type="text" id="author_name" name="author_name" required placeholder="Jane Smith">
+        </div>
+
+        <div class="field">
+          <label for="author_email">Author email</label>
+          <input type="text" id="author_email" name="author_email" required placeholder="jane@institution.edu">
+        </div>
+
+        <div class="field">
+          <label for="affiliation">Affiliation</label>
+          <input type="text" id="affiliation" name="affiliation" required placeholder="University / Lab">
+        </div>
+
+        <div class="field">
+          <label>License</label>
+          <div class="license-cards">
+            <label class="license-card">
+              <input type="radio" name="license" value="CC-BY-4.0" checked>
+              <div>
+                <div class="license-name">CC-BY-4.0</div>
+                <div class="license-desc">Narrative content, observations, and data</div>
+              </div>
+            </label>
+            <label class="license-card">
+              <input type="radio" name="license" value="CERN-OHL-P-2.0">
+              <div>
+                <div class="license-name">CERN-OHL-P-2.0</div>
+                <div class="license-desc">Protocols, formulations, and specifications</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit" id="submit-btn">
+            <i class="ti ti-sparkles"></i>
+            Generate preview
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById('submit-form');
+    const fileInput = document.getElementById('zip_file');
+    const fileLabel = document.getElementById('file-label');
+    const fileZone = document.getElementById('file-zone');
+    const loadingScreen = document.getElementById('loading-screen');
+    const statusMsg = document.getElementById('status-msg');
+
+    const messages = [
+      'Unpacking your files...',
+      'Reading research materials...',
+      'Generating DevNote draft...',
+      'Extracting review flags...',
+      'Almost done...',
+    ];
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        fileLabel.textContent = fileInput.files[0].name;
+        fileZone.classList.add('has-file');
+      }
+    });
+
+    form.addEventListener('submit', () => {
+      form.style.display = 'none';
+      loadingScreen.style.display = 'block';
+
+      let i = 0;
+      setInterval(() => {
+        i = (i + 1) % messages.length;
+        statusMsg.textContent = messages[i];
+      }, 3000);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+flask
+anthropic
+python-dotenv
+gunicorn
+PyGithub
+PyYAML

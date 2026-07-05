@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevNote Preview — Nucleus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.19.0/iconfont/tabler-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+</head>
+<body>
+  <div class="top-accent"></div>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <span class="wordmark">Nucleus</span>
+      <span class="site-header-title">DevNote preview</span>
+      <a href="/" class="site-header-link"><i class="ti ti-arrow-left"></i> New submission</a>
+    </div>
+  </header>
+
+  <div class="preview-layout">
+
+    <!-- Left: Generated DevNote -->
+    <div class="preview-col preview-content">
+      <div class="devnote-body" id="devnote-body"></div>
+    </div>
+
+    <!-- Right: Review checklist -->
+    <div class="preview-col preview-sidebar">
+      <div class="sidebar-header">Review checklist</div>
+
+      {% set blocking = review_flags | selectattr("severity", "equalto", "blocking") | list %}
+      {% set advisory = review_flags | selectattr("severity", "equalto", "advisory") | list %}
+
+      <div class="flag-counts">
+        <span class="count-blocking">{{ blocking | length }} blocking</span>
+        <span class="sep">·</span>
+        <span class="count-advisory">{{ advisory | length }} advisory</span>
+      </div>
+
+      {% if blocking %}
+      <div class="flag-section">
+        <div class="flag-section-label">Fix before submitting</div>
+        {% for flag in blocking %}
+        <div class="flag flag-blocking">
+          <i class="ti ti-alert-circle"></i>
+          <div>
+            <div class="flag-field">{{ flag.field }}</div>
+            <div class="flag-reason">{{ flag.reason }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if advisory %}
+      <div class="flag-section">
+        <div class="flag-section-label">Recommended</div>
+        {% for flag in advisory %}
+        <div class="flag flag-advisory">
+          <i class="ti ti-info-circle"></i>
+          <div>
+            <div class="flag-field">{{ flag.field }}</div>
+            <div class="flag-reason">{{ flag.reason }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if not blocking and not advisory %}
+      <div class="flag-section">
+        <div class="flag flag-advisory">
+          <i class="ti ti-circle-check"></i>
+          <div>
+            <div class="flag-field">No review flags</div>
+            <div class="flag-reason">The draft looks complete. Verify content before publishing.</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="download-section">
+        <a href="/download/{{ session_id }}" class="download-btn">
+          <i class="ti ti-download"></i>
+          Download zip
+        </a>
+        <button id="submit-review-btn"
+          onclick="submitForReview()"
+          style="width:100%; padding:10px; margin-top:8px;
+            background:var(--surface-2); border:0.5px solid var(--accent);
+            color:var(--accent); border-radius:var(--radius);
+            font-family:var(--font-mono); font-size:13px; cursor:pointer;">
+          Submit for review ↗
+        </button>
+        <div id="submit-status"
+          style="margin-top:8px; font-size:12px; font-family:var(--font-mono);
+            color:var(--text-muted); text-align:center;">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    console.log("marked available:", typeof marked);
+
+    const rawMd = {{ index_md | tojson }};
+    console.log("rawMd length:", rawMd.length);
+    console.log("rawMd preview:", rawMd.slice(0, 100));
+
+    function stripFrontmatter(md) {
+      if (!md.startsWith('---')) return { frontmatter: null, body: md };
+      const end = md.indexOf('\n---', 3);
+      if (end === -1) return { frontmatter: null, body: md };
+      const frontmatter = md.slice(3, end).trim();
+      const body = md.slice(end + 4).trimStart();
+      return { frontmatter, body };
+    }
+
+    function preprocessMyst(md) {
+      // Handle figure directives FIRST, before stripping other directives
+      const figureRegex = /:{3}\{figure\}\s+(\S+)\n((?::[\w-]+:.*\n)*)([\s\S]*?):{3}/g;
+      md = md.replace(figureRegex, (match, path, props, body) => {
+        console.log("Figure match — path:", path, "| props:", props.trim(), "| caption:", body.trim());
+        const labelMatch = props.match(/:label:\s*(\S+)/);
+        const widthMatch = props.match(/:width:\s*(\S+)/);
+        const label = labelMatch ? labelMatch[1] : null;
+        const width = widthMatch ? widthMatch[1] : null;
+        const caption = body.trim();
+
+        let propsHtml = '';
+        if (label) propsHtml += `<span class="fig-prop">label: <code>${label}</code></span>`;
+        if (width) propsHtml += `<span class="fig-prop">width: ${width}</span>`;
+
+        return `<div class="figure-block">
+<div class="figure-header"><i class="ti ti-photo" aria-hidden="true"></i><code>${path}</code></div>
+${propsHtml ? `<div class="figure-props">${propsHtml}</div>` : ''}
+${caption ? `<div class="figure-caption">${caption}</div>` : ''}
+</div>`;
+      });
+
+      // Strip ALL remaining MyST directive openers and their property lines
+      // (tab-set, tab-item, table, admonition, etc.) — not just {table}
+      md = md.replace(/^:{3,}\{[\w-]+\}[^\n]*\n((?::[^\n]+\n)*)*/gm, '');
+      // Strip any remaining standalone ::: lines (closing directive markers)
+      md = md.replace(/^:{3,}\s*$/gm, '');
+      // Replace {ref}`label` with a styled inline reference span
+      md = md.replace(/\{ref\}`([^`]+)`/g, '<span class="ref-tag">↗ $1</span>');
+
+      return md;
+    }
+
+    const { frontmatter, body } = stripFrontmatter(rawMd);
+    console.log("frontmatter present:", !!frontmatter);
+    console.log("body length:", body.length);
+    console.log("body preview:", body.slice(0, 100));
+
+    const container = document.getElementById('devnote-body');
+    console.log("container element:", container);
+
+    if (frontmatter) {
+      const details = document.createElement('details');
+      details.style.cssText = 'margin-bottom: 16px;';
+      const escaped = frontmatter.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      details.innerHTML = `<summary style="font-size:12px;color:var(--text-muted);cursor:pointer;">Show frontmatter</summary>
+<pre style="font-size:11px;background:var(--surface-1);padding:12px;border-radius:var(--radius);overflow-x:auto;margin-top:8px;border-left:3px solid var(--accent);">${escaped}</pre>`;
+      container.appendChild(details);
+    }
+
+    const processed = preprocessMyst(body);
+    const html = marked.parse(processed);
+    console.log("html length:", html.length);
+    console.log("html preview:", html.slice(0, 100));
+
+    const rendered = document.createElement('div');
+    rendered.innerHTML = html;
+    container.appendChild(rendered);
+    console.log("innerHTML set, container childCount:", container.childElementCount);
+
+    async function submitForReview() {
+      const btn = document.getElementById('submit-review-btn');
+      const status = document.getElementById('submit-status');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+      status.style.color = 'var(--text-muted)';
+      status.textContent = '';
+
+      try {
+        const res = await fetch('/publish/{{ session_id }}', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        btn.style.display = 'none';
+        status.style.color = 'var(--accent)';
+        status.innerHTML = `✓ PR opened — <a href="${data.pr_url}" target="_blank" style="color:var(--accent);">view on GitHub</a>`;
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Submit for review ↗';
+        status.style.color = 'var(--text-danger)';
+        status.textContent = `Error: ${err.message}`;
+      }
+    }
+  </script>
+
+</body>
+</html>
